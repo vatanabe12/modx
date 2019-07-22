@@ -1,33 +1,46 @@
+
 FROM alpine:3.1
 
+RUN apk add --update wget zip
 
-RUN apk update && apk upgrade \
 
-#Установка nginx, mysql, php
-   && apk add nginx \ 
-   
-   &&  apk add mysql mysql-client \ 
+#nginx
 
-   && apk add  php-fpm php-pdo_mysql php-curl php-json php-xml php-zlib php-gd 
+RUN  apk add --update nginx 
+RUN  mkdir /tmp/nginx
+COPY nginx.conf /etc/nginx/nginx.conf
 
-#nginx настройка
-RUN adduser -D -g 'www' www \ 
 
-    && mkdir /www \
+#php  
 
-    && chown -R www:www /www
+RUN apk add --update php-fpm php-pdo_mysql php-curl php-json php-xml php-zlib php-gd
 
-COPY ./nginx.conf /etc/nginx/nginx.conf
 
-#mysql настройка
-RUN /usr/bin/mysql_install_db --user=mysql --datadir=/var/lib/mysql \
+# supervisord
 
-   && chown -R mysql:mysql /var/lib/mysql
+RUN  apk add --update supervisor
+COPY supervisord.ini /etc/supervisor.d/supervisord.ini
 
-#добавление volume
 
-VOLUME /www
+# MODX
 
-#запуск сервисов
-#CMD rc-service nginx restart && rc-service php-fpm start && /usr/bin/mysqld_safe & sleep 5
+COPY modx.sh /tmp/modx.sh
+RUN  sh /tmp/modx.sh && rm /tmp/modx.sh
 
+
+#mysql
+
+RUN  apk add --update mysql mysql-client
+ENV  ROOT_PWD modx
+COPY mysql.sh /tmp/mysql.sh
+RUN  sh /tmp/mysql.sh && rm /tmp/mysql.sh
+
+#container configuration
+
+EXPOSE 80
+VOLUME /home/modx
+
+
+#start...
+
+CMD ["supervisord", "-c", "/etc/supervisord.conf", "-n"]
